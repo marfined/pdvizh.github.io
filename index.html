@@ -22,6 +22,7 @@
         .container {
             max-width: 600px;
             margin: 0 auto;
+            padding-bottom: 80px;
         }
 
         .card {
@@ -43,14 +44,15 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
 
-        .room-card {
+        .room-card, .item-card {
             background: #f5f5f5;
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 10px;
+            position: relative;
         }
 
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 12px;
             margin: 8px 0;
@@ -87,13 +89,17 @@
             background: #FF9800;
         }
 
+        .btn-secondary {
+            background: #9E9E9E;
+        }
+
         .summary {
             background: #e3f2fd;
             border-left: 4px solid #2196F3;
         }
 
         .total {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #2196F3;
             text-align: center;
@@ -135,16 +141,38 @@
             font-weight: bold;
         }
 
-        .option-btn {
-            background: #e0e0e0;
-            color: #333;
-            margin: 5px;
-            padding: 10px;
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 18px;
+            cursor: pointer;
         }
 
-        .option-btn.selected {
-            background: #2196F3;
-            color: white;
+        .nav-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                padding-bottom: 80px;
+            }
         }
     </style>
 </head>
@@ -163,7 +191,7 @@
             <div class="card">
                 <h2>🏠 Комнаты</h2>
                 <div id="roomsList"></div>
-                <button onclick="addRoom()">➕ Добавить комнату</button>
+                <button onclick="showRoomDialog()">➕ Добавить комнату</button>
                 <button class="btn-success" onclick="nextStep()">Далее →</button>
             </div>
         </div>
@@ -173,8 +201,8 @@
             <div class="card">
                 <h2>📐 Профили/багеты</h2>
                 <div id="profilesList"></div>
-                <button onclick="addProfile()">➕ Добавить профиль</button>
-                <button onclick="prevStep()">← Назад</button>
+                <button onclick="showProfileDialog()">➕ Добавить профиль</button>
+                <button class="btn-secondary" onclick="prevStep()">← Назад</button>
                 <button class="btn-success" onclick="nextStep()">Далее →</button>
             </div>
         </div>
@@ -184,8 +212,8 @@
             <div class="card">
                 <h2>🔩 Закладные</h2>
                 <div id="zaklList"></div>
-                <button onclick="addZakl()">➕ Добавить закладную</button>
-                <button onclick="prevStep()">← Назад</button>
+                <button onclick="showZaklDialog()">➕ Добавить закладную</button>
+                <button class="btn-secondary" onclick="prevStep()">← Назад</button>
                 <button class="btn-success" onclick="nextStep()">Далее →</button>
             </div>
         </div>
@@ -195,8 +223,8 @@
             <div class="card">
                 <h2>💡 Световое оборудование</h2>
                 <div id="lightList"></div>
-                <button onclick="addLight()">➕ Добавить свет</button>
-                <button onclick="prevStep()">← Назад</button>
+                <button onclick="showLightDialog()">➕ Добавить свет</button>
+                <button class="btn-secondary" onclick="prevStep()">← Назад</button>
                 <button class="btn-success" onclick="nextStep()">Далее →</button>
             </div>
         </div>
@@ -206,8 +234,8 @@
             <div class="card">
                 <h2>🔧 Дополнительные работы</h2>
                 <div id="extraList"></div>
-                <button onclick="addExtra()">➕ Добавить работу</button>
-                <button onclick="prevStep()">← Назад</button>
+                <button onclick="showExtraDialog()">➕ Добавить работу</button>
+                <button class="btn-secondary" onclick="prevStep()">← Назад</button>
                 <button class="btn-success" onclick="nextStep()">📊 Рассчитать</button>
             </div>
         </div>
@@ -217,12 +245,78 @@
             <div class="card summary">
                 <h2>📊 ИТОГОВЫЙ РАСЧЁТ</h2>
                 <div id="summaryContent"></div>
-                <button onclick="newCalculation()">🔄 Новый расчёт</button>
+                <button class="btn-success" onclick="newCalculation()">🔄 Новый расчёт</button>
             </div>
         </div>
     </div>
 
+    <div class="nav-buttons" id="navButtons">
+        <button class="btn-secondary" onclick="prevStep()" id="prevBtn" style="display: none;">← Назад</button>
+        <button class="btn-success" onclick="nextStep()" id="nextBtn">Далее →</button>
+    </div>
+
     <script>
+        // Данные из вашего config.py
+        const CEILING_OPTIONS = [
+            { id: "360k", name: "360 классика", price: 440, unit: "м²" },
+            { id: "500k", name: "500 классика", price: 510, unit: "м²" },
+            { id: "360p", name: "360 премиум", price: 600, unit: "м²" },
+            { id: "500p", name: "500 премиум", price: 680, unit: "м²" },
+            { id: "600k", name: "600 классик", price: 720, unit: "м²" },
+            { id: "400b", name: "400 бауф", price: 820, unit: "м²" }
+        ];
+
+        const PROFILE_OPTIONS = [
+            { id: "pvh", name: "ПВХ", price: 220, unit: "п/м", corners: [] },
+            { id: "pvh_angle", name: "Доп угол ПВХ", price: 170, unit: "шт", corners: [] },
+            { id: "bison", name: "Теневой бизон", price: 820, unit: "п/м", corners: [{ key: "corner", label: "Углы", price: 280 }] },
+            { id: "crab", name: "Теневой краб", price: 1260, unit: "п/м", corners: [
+                { key: "inner", label: "Внутренние углы", price: 390 },
+                { key: "outer", label: "Наружные углы", price: 820 }
+            ]},
+            { id: "float1", name: "Парящий однотон", price: 2200, unit: "п/м", corners: [] },
+            { id: "float2", name: "Парящий разноцвет", price: 2750, unit: "п/м", corners: [] }
+        ];
+
+        const ZAKL_OPTIONS = [
+            { id: "spot", name: "Точечные светильники", price: 540, unit: "шт" },
+            { id: "lust20", name: "Люстры 20×20", price: 770, unit: "шт" },
+            { id: "lust60", name: "Люстры 60×60", price: 1540, unit: "шт" },
+            { id: "track", name: "Треки", price: 1100, unit: "п/м" },
+            { id: "niche", name: "Ниша", price: 1320, unit: "п/м" },
+            { id: "niche_l", name: "Ниша подсветка нищий вариант", price: 2200, unit: "п/м" },
+            { id: "niche_p", name: "Ниша подсветка премиум", price: 3300, unit: "п/м" },
+            { id: "cornice_z", name: "Закладная под карниз", price: 720, unit: "п/м" },
+            { id: "wardr_z", name: "Закладная для шкафа", price: 720, unit: "п/м" }
+        ];
+
+        const LIGHT_OPTIONS = [
+            { id: "line", name: "Световые линии", price: 4400, unit: "п/м" },
+            { id: "line_end", name: "Торцы световой линии", price: 920, unit: "шт" },
+            { id: "line_blk", name: "Блоки световых линий", price: 2200, unit: "шт" },
+            { id: "line_cross", name: "Перекрестие световых линий", price: 2750, unit: "шт" },
+            { id: "track_nak", name: "Трек накладной однофазный", price: 1300, unit: "п/м" },
+            { id: "mag_track", name: "Магнитный трек", price: 7200, unit: "п/м" },
+            { id: "mag_pwr", name: "Блок питания магнитного трека", price: 3000, unit: "шт" },
+            { id: "mag_end", name: "Торцы магнитного трека", price: 1320, unit: "шт" }
+        ];
+
+        const EXTRA_OPTIONS = [
+            { id: "corn_std", name: "Карниз обычный", price: 600, unit: "п/м" },
+            { id: "corn_bl", name: "Карниз бленда", price: 770, unit: "п/м" },
+            { id: "corn_pk15", name: "Карниз ПК-15 наклон", price: 2750, unit: "п/м" },
+            { id: "corn_pk14", name: "Карниз ПК-14", price: 3300, unit: "п/м" },
+            { id: "corn_pk14e", name: "Торцы ПК-14", price: 950, unit: "шт" },
+            { id: "corn_am1", name: "Карниз АМ-1", price: 2200, unit: "п/м" },
+            { id: "corn_am1e", name: "Торцы АМ-1", price: 950, unit: "шт" },
+            { id: "granite", name: "Работа с керамогранитом", price: 1100, unit: "п/м" },
+            { id: "div_k", name: "Разделитель классика", price: 1650, unit: "п/м" },
+            { id: "div_sh", name: "Разделитель тень", price: 2750, unit: "п/м" },
+            { id: "beam", name: "Обход брусом", price: 1000, unit: "п/м" },
+            { id: "ins_w", name: "Вставка белая", price: 95, unit: "п/м" },
+            { id: "ins_c", name: "Вставка не белая", price: 180, unit: "п/м" }
+        ];
+
         // Данные приложения
         let appData = {
             rooms: [],
@@ -234,50 +328,33 @@
 
         let currentStep = 1;
 
-        // Цены (из вашего бота)
-        const ceilingPrices = {
-            'ПВХ матовый': 350,
-            'ПВХ глянцевый': 380,
-            'ПВХ сатиновый': 370,
-            'Тканевый': 550
-        };
-
-        const profilePrices = {
-            'ПВХ багет': 250,
-            'Алюминиевый профиль': 450,
-            'Скрытый профиль': 600
-        };
-
-        const zaklPrices = {
-            'Закладная под люстру': 500,
-            'Закладная под светильник': 400,
-            'Усиленная закладная': 700
-        };
-
-        const lightPrices = {
-            'Светильник LED 12W': 800,
-            'Светильник LED 18W': 1200,
-            'Трековый светильник': 1500,
-            'Люстра': 2500
-        };
-
-        const extraPrices = {
-            'Обход трубы': 500,
-            'Установка вентиляции': 1000,
-            'Дополнительный угол': 300,
-            'Терморазрыв': 800
-        };
-
         function updateProgress() {
             const percent = (currentStep / 6) * 100;
             document.getElementById('progressFill').style.width = percent + '%';
+            
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (currentStep === 1) {
+                prevBtn.style.display = 'none';
+                nextBtn.textContent = 'Далее →';
+            } else if (currentStep === 6) {
+                prevBtn.style.display = 'inline-block';
+                nextBtn.style.display = 'none';
+            } else {
+                prevBtn.style.display = 'inline-block';
+                nextBtn.style.display = 'inline-block';
+                nextBtn.textContent = 'Далее →';
+            }
         }
 
         function showStep(step) {
             for (let i = 1; i <= 6; i++) {
-                document.getElementById(`step${i}`).classList.remove('active');
+                const el = document.getElementById(`step${i}`);
+                if (el) el.classList.remove('active');
             }
-            document.getElementById(`step${step}`).classList.add('active');
+            const targetStep = document.getElementById(`step${step}`);
+            if (targetStep) targetStep.classList.add('active');
             currentStep = step;
             updateProgress();
             
@@ -304,30 +381,45 @@
             }
         }
 
+        function formatNumber(num) {
+            return num.toLocaleString('ru-RU');
+        }
+
+        function showRoomDialog() {
+            let html = `
+                <div class="card" id="roomDialog">
+                    <h3>Новая комната</h3>
+                    <input type="number" id="roomArea" placeholder="Площадь (м²)" step="0.1">
+                    <input type="number" id="roomPerimeter" placeholder="Периметр (п/м)" step="0.1">
+                    <select id="roomCeiling">
+                        ${CEILING_OPTIONS.map(c => `<option value='${JSON.stringify(c)}'>${c.name} — ${c.price} ₽/${c.unit}</option>`).join('')}
+                    </select>
+                    <button onclick="addRoom()">Добавить</button>
+                    <button onclick="closeDialog('roomDialog')">Отмена</button>
+                </div>
+            `;
+            document.querySelector('.container').insertAdjacentHTML('afterbegin', html);
+        }
+
         function addRoom() {
-            const area = prompt('Площадь комнаты (м²):');
-            const perimeter = prompt('Периметр комнаты (п/м):');
-            if (area && perimeter && !isNaN(area) && !isNaN(perimeter)) {
-                const ceiling = prompt('Тип полотна:\n1 - ПВХ матовый\n2 - ПВХ глянцевый\n3 - ПВХ сатиновый\n4 - Тканевый');
-                let ceilingType = '';
-                let price = 0;
-                switch(ceiling) {
-                    case '1': ceilingType = 'ПВХ матовый'; price = 350; break;
-                    case '2': ceilingType = 'ПВХ глянцевый'; price = 380; break;
-                    case '3': ceilingType = 'ПВХ сатиновый'; price = 370; break;
-                    case '4': ceilingType = 'Тканевый'; price = 550; break;
-                    default: ceilingType = 'ПВХ матовый'; price = 350;
-                }
-                const total = parseFloat(area) * price;
-                appData.rooms.push({
-                    area: parseFloat(area),
-                    perimeter: parseFloat(perimeter),
-                    ceilingType: ceilingType,
-                    price: price,
-                    total: total
-                });
-                renderRooms();
+            const area = parseFloat(document.getElementById('roomArea').value);
+            const perimeter = parseFloat(document.getElementById('roomPerimeter').value);
+            const ceiling = JSON.parse(document.getElementById('roomCeiling').value);
+            
+            if (isNaN(area) || isNaN(perimeter) || area <= 0 || perimeter <= 0) {
+                alert('Введите корректные значения');
+                return;
             }
+            
+            const total = area * ceiling.price;
+            appData.rooms.push({
+                area, perimeter,
+                ceilingName: ceiling.name,
+                ceilingPrice: ceiling.price,
+                total
+            });
+            renderRooms();
+            closeDialog('roomDialog');
         }
 
         function removeRoom(index) {
@@ -337,193 +429,105 @@
 
         function renderRooms() {
             const container = document.getElementById('roomsList');
+            if (!container) return;
+            
             if (appData.rooms.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Нет добавленных комнат</p>';
+                container.innerHTML = '<p style="color: #999; text-align: center;">Нет добавленных комнат</p>';
                 return;
             }
+            
             container.innerHTML = appData.rooms.map((room, i) => `
                 <div class="room-card">
+                    <button class="delete-btn" onclick="removeRoom(${i})">×</button>
                     <strong>Комната ${i+1}</strong><br>
-                    Площадь: ${room.area} м² | Периметр: ${room.perimeter} п/м<br>
-                    Полотно: ${room.ceilingType}<br>
-                    Стоимость: ${room.total.toLocaleString()} ₽
-                    <button class="btn-danger" onclick="removeRoom(${i})" style="padding: 5px 10px; font-size: 12px;">✖</button>
+                    📐 Площадь: ${room.area} м² | Периметр: ${room.perimeter} п/м<br>
+                    🎨 Полотно: ${room.ceilingName}<br>
+                    💰 Стоимость: ${formatNumber(room.total)} ₽
                 </div>
             `).join('');
         }
 
-        function addProfile() {
-            const type = prompt('Тип профиля:\n1 - ПВХ багет (250 ₽/м)\n2 - Алюминиевый (450 ₽/м)\n3 - Скрытый (600 ₽/м)');
-            const qty = prompt('Количество (п/м):');
-            if (qty && !isNaN(qty)) {
-                let profileType = '';
-                let price = 0;
-                switch(type) {
-                    case '1': profileType = 'ПВХ багет'; price = 250; break;
-                    case '2': profileType = 'Алюминиевый профиль'; price = 450; break;
-                    case '3': profileType = 'Скрытый профиль'; price = 600; break;
-                    default: profileType = 'ПВХ багет'; price = 250;
-                }
-                const total = parseFloat(qty) * price;
-                appData.profiles.push({
-                    type: profileType,
-                    qty: parseFloat(qty),
-                    price: price,
-                    total: total
-                });
-                renderProfiles();
-            }
+        function showGenericDialog(title, options, callback) {
+            let html = `
+                <div class="card" id="genericDialog">
+                    <h3>${title}</h3>
+                    <select id="itemSelect">
+                        ${options.map(opt => `<option value='${JSON.stringify(opt)}'>${opt.name} — ${opt.price} ₽/${opt.unit}</option>`).join('')}
+                    </select>
+                    <input type="number" id="itemQty" placeholder="Количество" step="0.1">
+                    <button onclick="addGenericItem('${callback}')">Добавить</button>
+                    <button onclick="closeDialog('genericDialog')">Отмена</button>
+                </div>
+            `;
+            document.querySelector('.container').insertAdjacentHTML('afterbegin', html);
         }
 
-        function removeProfile(index) {
-            appData.profiles.splice(index, 1);
-            renderProfiles();
-        }
-
-        function renderProfiles() {
-            const container = document.getElementById('profilesList');
-            if (appData.profiles.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Нет добавленных профилей</p>';
+        function addGenericItem(dataKey) {
+            const select = document.getElementById('itemSelect');
+            const qtyInput = document.getElementById('itemQty');
+            
+            if (!select || !qtyInput) return;
+            
+            const item = JSON.parse(select.value);
+            const qty = parseFloat(qtyInput.value);
+            
+            if (isNaN(qty) || qty <= 0) {
+                alert('Введите корректное количество');
                 return;
             }
-            container.innerHTML = appData.profiles.map((prof, i) => `
-                <div class="room-card">
-                    ${prof.type}<br>
-                    ${prof.qty} п/м × ${prof.price} ₽ = ${prof.total.toLocaleString()} ₽
-                    <button class="btn-danger" onclick="removeProfile(${i})" style="padding: 5px 10px; font-size: 12px;">✖</button>
-                </div>
-            `).join('');
+            
+            const total = qty * item.price;
+            appData[dataKey].push({
+                name: item.name,
+                unit: item.unit,
+                qty: qty,
+                price: item.price,
+                total: total
+            });
+            
+            renderList(dataKey);
+            closeDialog('genericDialog');
         }
 
-        function addZakl() {
-            const type = prompt('Тип закладной:\n1 - Под люстру (500 ₽)\n2 - Под светильник (400 ₽)\n3 - Усиленная (700 ₽)');
-            const qty = prompt('Количество (шт):');
-            if (qty && !isNaN(qty)) {
-                let zaklType = '';
-                let price = 0;
-                switch(type) {
-                    case '1': zaklType = 'Закладная под люстру'; price = 500; break;
-                    case '2': zaklType = 'Закладная под светильник'; price = 400; break;
-                    case '3': zaklType = 'Усиленная закладная'; price = 700; break;
-                    default: zaklType = 'Закладная под люстру'; price = 500;
-                }
-                const total = parseInt(qty) * price;
-                appData.zakl.push({
-                    type: zaklType,
-                    qty: parseInt(qty),
-                    price: price,
-                    total: total
-                });
-                renderZakl();
-            }
-        }
-
-        function removeZakl(index) {
-            appData.zakl.splice(index, 1);
-            renderZakl();
-        }
-
-        function renderZakl() {
-            const container = document.getElementById('zaklList');
-            if (appData.zakl.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Нет добавленных закладных</p>';
+        function renderList(dataKey) {
+            const containerMap = {
+                profiles: 'profilesList',
+                zakl: 'zaklList',
+                light: 'lightList',
+                extra: 'extraList'
+            };
+            
+            const container = document.getElementById(containerMap[dataKey]);
+            if (!container) return;
+            
+            const items = appData[dataKey];
+            if (items.length === 0) {
+                container.innerHTML = '<p style="color: #999; text-align: center;">Нет добавленных позиций</p>';
                 return;
             }
-            container.innerHTML = appData.zakl.map((item, i) => `
-                <div class="room-card">
-                    ${item.type}<br>
-                    ${item.qty} шт × ${item.price} ₽ = ${item.total.toLocaleString()} ₽
-                    <button class="btn-danger" onclick="removeZakl(${i})" style="padding: 5px 10px; font-size: 12px;">✖</button>
+            
+            container.innerHTML = items.map((item, i) => `
+                <div class="item-card">
+                    <button class="delete-btn" onclick="removeItem('${dataKey}', ${i})">×</button>
+                    <strong>${item.name}</strong><br>
+                    📦 ${item.qty} ${item.unit} × ${formatNumber(item.price)} ₽ = ${formatNumber(item.total)} ₽
                 </div>
             `).join('');
         }
 
-        function addLight() {
-            const type = prompt('Тип светильника:\n1 - LED 12W (800 ₽)\n2 - LED 18W (1200 ₽)\n3 - Трековый (1500 ₽)\n4 - Люстра (2500 ₽)');
-            const qty = prompt('Количество (шт):');
-            if (qty && !isNaN(qty)) {
-                let lightType = '';
-                let price = 0;
-                switch(type) {
-                    case '1': lightType = 'Светильник LED 12W'; price = 800; break;
-                    case '2': lightType = 'Светильник LED 18W'; price = 1200; break;
-                    case '3': lightType = 'Трековый светильник'; price = 1500; break;
-                    case '4': lightType = 'Люстра'; price = 2500; break;
-                    default: lightType = 'Светильник LED 12W'; price = 800;
-                }
-                const total = parseInt(qty) * price;
-                appData.light.push({
-                    type: lightType,
-                    qty: parseInt(qty),
-                    price: price,
-                    total: total
-                });
-                renderLight();
-            }
+        function removeItem(dataKey, index) {
+            appData[dataKey].splice(index, 1);
+            renderList(dataKey);
         }
 
-        function removeLight(index) {
-            appData.light.splice(index, 1);
-            renderLight();
-        }
+        function showProfileDialog() { showGenericDialog('Новый профиль', PROFILE_OPTIONS, 'profiles'); }
+        function showZaklDialog() { showGenericDialog('Новая закладная', ZAKL_OPTIONS, 'zakl'); }
+        function showLightDialog() { showGenericDialog('Новый светильник', LIGHT_OPTIONS, 'light'); }
+        function showExtraDialog() { showGenericDialog('Новая работа', EXTRA_OPTIONS, 'extra'); }
 
-        function renderLight() {
-            const container = document.getElementById('lightList');
-            if (appData.light.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Нет добавленных светильников</p>';
-                return;
-            }
-            container.innerHTML = appData.light.map((item, i) => `
-                <div class="room-card">
-                    ${item.type}<br>
-                    ${item.qty} шт × ${item.price} ₽ = ${item.total.toLocaleString()} ₽
-                    <button class="btn-danger" onclick="removeLight(${i})" style="padding: 5px 10px; font-size: 12px;">✖</button>
-                </div>
-            `).join('');
-        }
-
-        function addExtra() {
-            const type = prompt('Дополнительная работа:\n1 - Обход трубы (500 ₽)\n2 - Установка вентиляции (1000 ₽)\n3 - Дополнительный угол (300 ₽)\n4 - Терморазрыв (800 ₽)');
-            const qty = prompt('Количество:');
-            if (qty && !isNaN(qty)) {
-                let extraType = '';
-                let price = 0;
-                switch(type) {
-                    case '1': extraType = 'Обход трубы'; price = 500; break;
-                    case '2': extraType = 'Установка вентиляции'; price = 1000; break;
-                    case '3': extraType = 'Дополнительный угол'; price = 300; break;
-                    case '4': extraType = 'Терморазрыв'; price = 800; break;
-                    default: extraType = 'Обход трубы'; price = 500;
-                }
-                const total = parseInt(qty) * price;
-                appData.extra.push({
-                    type: extraType,
-                    qty: parseInt(qty),
-                    price: price,
-                    total: total
-                });
-                renderExtra();
-            }
-        }
-
-        function removeExtra(index) {
-            appData.extra.splice(index, 1);
-            renderExtra();
-        }
-
-        function renderExtra() {
-            const container = document.getElementById('extraList');
-            if (appData.extra.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Нет добавленных работ</p>';
-                return;
-            }
-            container.innerHTML = appData.extra.map((item, i) => `
-                <div class="room-card">
-                    ${item.type}<br>
-                    ${item.qty} × ${item.price} ₽ = ${item.total.toLocaleString()} ₽
-                    <button class="btn-danger" onclick="removeExtra(${i})" style="padding: 5px 10px; font-size: 12px;">✖</button>
-                </div>
-            `).join('');
+        function closeDialog(dialogId) {
+            const dialog = document.getElementById(dialogId);
+            if (dialog) dialog.remove();
         }
 
         function generateSummary() {
@@ -533,37 +537,45 @@
             const lightTotal = appData.light.reduce((sum, l) => sum + l.total, 0);
             const extraTotal = appData.extra.reduce((sum, e) => sum + e.total, 0);
             const grandTotal = ceilingTotal + profileTotal + zaklTotal + lightTotal + extraTotal;
-            
             const totalPerimeter = appData.rooms.reduce((sum, r) => sum + r.perimeter, 0);
             
-            document.getElementById('summaryContent').innerHTML = `
+            const summaryHtml = `
                 <div style="margin: 15px 0;">
-                    <strong>🏠 ПОТОЛКИ: ${ceilingTotal.toLocaleString()} ₽</strong><br>
-                    Суммарный периметр: ${totalPerimeter} п/м
+                    <strong>🏠 ПОТОЛКИ: ${formatNumber(ceilingTotal)} ₽</strong><br>
+                    Суммарный периметр: ${formatNumber(totalPerimeter)} п/м
+                    ${appData.rooms.map(r => `<br>• Комната: ${r.ceilingName} — ${formatNumber(r.total)} ₽`).join('')}
                 </div>
                 <div style="margin: 15px 0;">
-                    <strong>📐 ПРОФИЛИ: ${profileTotal.toLocaleString()} ₽</strong>
+                    <strong>📐 ПРОФИЛИ: ${formatNumber(profileTotal)} ₽</strong>
+                    ${appData.profiles.map(p => `<br>• ${p.name}: ${p.qty} ${p.unit} — ${formatNumber(p.total)} ₽`).join('')}
                 </div>
                 <div style="margin: 15px 0;">
-                    <strong>🔩 ЗАКЛАДНЫЕ: ${zaklTotal.toLocaleString()} ₽</strong>
+                    <strong>🔩 ЗАКЛАДНЫЕ: ${formatNumber(zaklTotal)} ₽</strong>
+                    ${appData.zakl.map(z => `<br>• ${z.name}: ${z.qty} ${z.unit} — ${formatNumber(z.total)} ₽`).join('')}
                 </div>
                 <div style="margin: 15px 0;">
-                    <strong>💡 СВЕТ: ${lightTotal.toLocaleString()} ₽</strong>
+                    <strong>💡 СВЕТ: ${formatNumber(lightTotal)} ₽</strong>
+                    ${appData.light.map(l => `<br>• ${l.name}: ${l.qty} ${l.unit} — ${formatNumber(l.total)} ₽`).join('')}
                 </div>
                 <div style="margin: 15px 0;">
-                    <strong>🔧 ДОП. РАБОТЫ: ${extraTotal.toLocaleString()} ₽</strong>
+                    <strong>🔧 ДОП. РАБОТЫ: ${formatNumber(extraTotal)} ₽</strong>
+                    ${appData.extra.map(e => `<br>• ${e.name}: ${e.qty} ${e.unit} — ${formatNumber(e.total)} ₽`).join('')}
                 </div>
                 
                 <div class="total">
-                    ИТОГО: ${grandTotal.toLocaleString()} ₽
+                    ИТОГО: ${formatNumber(grandTotal)} ₽
                 </div>
                 
                 <div class="discount">
-                    Скидка 5%: ${(grandTotal * 0.95).toLocaleString()} ₽<br>
-                    Скидка 10%: ${(grandTotal * 0.9).toLocaleString()} ₽<br>
-                    Скидка 15%: ${(grandTotal * 0.85).toLocaleString()} ₽
+                    <strong>💰 Скидки:</strong><br>
+                    Скидка 5%: ${formatNumber(grandTotal * 0.95)} ₽<br>
+                    Скидка 10%: ${formatNumber(grandTotal * 0.9)} ₽<br>
+                    Скидка 15%: ${formatNumber(grandTotal * 0.85)} ₽
                 </div>
             `;
+            
+            const summaryDiv = document.getElementById('summaryContent');
+            if (summaryDiv) summaryDiv.innerHTML = summaryHtml;
         }
 
         function newCalculation() {
@@ -575,12 +587,19 @@
                 extra: []
             };
             renderRooms();
-            renderProfiles();
-            renderZakl();
-            renderLight();
-            renderExtra();
+            renderList('profiles');
+            renderList('zakl');
+            renderList('light');
+            renderList('extra');
             showStep(1);
         }
+
+        // Инициализация
+        renderRooms();
+        renderList('profiles');
+        renderList('zakl');
+        renderList('light');
+        renderList('extra');
     </script>
 </body>
 </html>
